@@ -1,0 +1,28 @@
+{
+  "name": "מלחמת המתנקש",
+  "short_name": "מתנקש",
+  "description": "משחק קלפים טקטי",
+  "start_url": "/hitman-clash/",
+  "scope": "/hitman-clash/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#050208",
+  "theme_color": "#050208",
+  "lang": "he",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": []
+}
