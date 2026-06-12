@@ -917,8 +917,8 @@ body::after{
   #mobile-bottom-bar button:active{
     background:rgba(200,160,40,0.26);
   }
-  /* hide buttons from topbar on mobile */
-  #shop-btn, #codex-btn{ display:none; }
+  /* hide shop-btn from topbar on mobile (codex stays visible) */
+  #shop-btn{ display:none; }
 }
 
 /* ── EXPOSE OVERLAY ── */
@@ -1226,7 +1226,21 @@ body::after{
     padding-bottom:env(safe-area-inset-bottom, 8px);
   }
   #app{
-    padding-bottom:60px !important;
+    padding-bottom:80px !important;
+    padding-top:max(env(safe-area-inset-top, 0px), 8px) !important;
+  }
+  #scores{
+    display:flex !important;
+    margin-top:0 !important;
+    position:sticky;
+    top:0;
+    z-index:10;
+    background:rgba(5,2,10,0.85);
+    padding:4px 0;
+    backdrop-filter:blur(8px);
+  }
+  #topbar-hp{
+    display:none !important;
   }
   #mobile-bottom-bar{
     display:none !important;
@@ -1243,6 +1257,10 @@ body::after{
   #shop-btn, #codex-btn, #challenges-btn, #home-btn{
     padding:6px 10px;
     font-size:16px;
+  }
+  /* make sure codex btn always visible */
+  #codex-btn{
+    display:inline-flex !important;
   }
 }
 
@@ -1330,6 +1348,23 @@ body::after{
   <!-- Top bar -->
   <div id="topbar">
     <div id="logo">⚔ מלחמה</div>
+    <!-- Mini HP bars for mobile -->
+    <div id="topbar-hp" style="display:none;flex-direction:column;gap:3px;flex:1;margin:0 8px;max-width:140px;">
+      <div style="display:flex;align-items:center;gap:4px;">
+        <span style="font-size:10px;flex-shrink:0;">🕵️</span>
+        <div style="flex:1;height:6px;background:rgba(0,0,0,.4);border-radius:3px;overflow:hidden;">
+          <div id="p-hp-mini" style="width:100%;height:100%;background:#2A7A3A;transition:width .5s;"></div>
+        </div>
+        <span id="p-hp-mini-txt" style="font-size:10px;color:#fff;min-width:28px;text-align:left;">100</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;">
+        <span style="font-size:10px;flex-shrink:0;">🎩</span>
+        <div style="flex:1;height:6px;background:rgba(0,0,0,.4);border-radius:3px;overflow:hidden;">
+          <div id="e-hp-mini" style="width:100%;height:100%;background:#CC2200;transition:width .5s;"></div>
+        </div>
+        <span id="e-hp-mini-txt" style="font-size:10px;color:#fff;min-width:28px;text-align:left;">100</span>
+      </div>
+    </div>
     <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
       <div id="coin-display" style="font-family:'Bebas Neue',sans-serif;font-size:13px;color:#FFD700;letter-spacing:1px;padding:4px 8px;background:rgba(200,160,0,.12);border:1px solid rgba(200,160,0,.3);border-radius:6px;flex-shrink:0;">🪙 0</div>
       <button id="volume-btn" onclick="openSoundPanel()" style="flex-shrink:0;font-size:16px;padding:4px 8px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:#fff;cursor:pointer;">🔊</button>
@@ -1498,7 +1533,7 @@ const CARDS = [
   {id:'mask',name:'תחפושת',power:4,art:'🎭',suit:'red',effect:'copy',desc:'העתקה',ability:'מתחזה לאויב — מעתיק את כוח הקלף של הברון.'},
   {id:'snare',name:'מלכודת',power:5,art:'⚡',suit:'black',effect:'stun',desc:'הלם',ability:'לוכד את הברון — בסיבוב הבא הוא יהיה חייב לשחק את הקלף החלש ביותר שלו.'},
   {id:'rope',name:'חנק',power:6,art:'🪢',suit:'black',effect:'execute',desc:'מוות',ability:'אם ה-HP של הברון מתחת ל-30, גורם נזק כפול.'},
-  {id:'dart',name:'חץ',power:3,art:'🎯',suit:'red',effect:'precise',desc:'דיוק',ability:'חץ מדויק — תמיד גורם לפחות 3 נזק, גם בהפסד.'},
+  {id:'dart',name:'נקמה',power:3,art:'⚔️',suit:'red',effect:'revenge',desc:'נקמה',ability:'אם תפסיד את הסיבוב — תקבל +3 כוח לקלף הבא שתשחק.'},
   {id:'expose',name:'חשיפה',power:4,art:'🔦',suit:'black',rarity:'rare',effect:'expose',desc:'חשיפה',ability:'חושף את מיקום קלף ההיטמן בחפיסה שלך לתור אחד.'},
   {id:'hitman',name:'היטמן',power:10,art:'🕴️',suit:'black',rarity:'hitman',effect:'instant_kill',desc:'חיסול מיידי',ability:'ברגע שקלף זה נשלף מהקופה — מי ששלף אותו מחוסל מיידית ומאבד את כל ה-HP שלו. ניתן לשלוף רק ידנית (15% סיכוי).'},
 ];
@@ -1538,6 +1573,7 @@ function initGame(){
     pHp:100, eHp:100,
     pShield:0, eShield:0,
     eBleed:0, ePoison:0, eStunned:false, eForceWeak:false, eSmoked:false, pSmoked:false, eHandRevealed:false, pDrewThisRound:false, hitmanExposed:false, hitmanDrawn:false, _swapPending:false, _baronSwapPending:false,
+    pRevenge:0,
     pCard:null, eCard:null,
     phase:'draw', // draw | select | resolve
     busy:false,
@@ -1919,6 +1955,16 @@ async function playRound(uid){
   // ── APPLY SPECIAL EFFECTS ──
   let pPow=pCard.power, ePow=eCard.power;
 
+  // ── REVENGE BONUS from previous round ──
+  if(G.pRevenge>0){
+    pPow+=G.pRevenge;
+    flashCardEffect(pEl,'🗡️ נקמה מופעלת!','rgba(200,50,50,0.5)');
+    showAbilityBanner('🗡️ נקמה','כוח +'+G.pRevenge+' מהסיבוב הקודם!','#FF6060');
+    addLog('🗡️ נקמה מופעלת — כוח +'+G.pRevenge,'win');
+    G.pRevenge=0;
+    await sleep(700);
+  }
+
   // ── SPY: keep enemy card face-down, then reveal dramatically ──
   if(pCard.effect==='reveal'){
     // Reveal all cards in baron's hand for next turn
@@ -2261,13 +2307,11 @@ async function playRound(uid){
     flashCardEffect(eEl,'💥 פיצוץ!','rgba(255,120,0,0.5)');
     addLog(`💥 רימון מתפוצץ — ${splashDmg} נזק לברון גם בהפסד!`,'win');
   }
-  // precise: dart deals at least 3 dmg even on loss
-  if(pCard.effect==='precise' && ePow>=pPow){
-    const precDmg=3;
-    G.eHp=Math.max(0,G.eHp-precDmg);
-    dmgToE+=precDmg;
-    flashCardEffect(eEl,'🎯 פגיעה!','rgba(255,200,0,0.4)');
-    addLog(`🎯 חץ מדויק — ${precDmg} נזק לברון גם בהפסד!`,'win');
+  // revenge: if player loses, grant +3 power bonus next round
+  if(pCard.effect==='revenge' && ePow>=pPow){
+    G.pRevenge=(G.pRevenge||0)+3;
+    flashCardEffect(pEl,'🗡️ נקמה!','rgba(200,50,50,0.5)');
+    addLog('🗡️ נקמה מבעירה — +3 כוח לסיבוב הבא!','sys');
   }
   // poison: apply next round
   if(pCard.effect==='poison'){ G.ePoison=5; flashCardEffect(eEl,'☠️ הורעל!','rgba(100,200,0,0.4)'); addLog('☠️ הרעל נכנס לפעולה — הברון יאבד 5 HP בסיבוב הבא','sys'); }
@@ -2385,6 +2429,15 @@ function updateUI(){
   eb.style.width=ep+'%';
   eb.style.background=ep<20?'#660000':ep<50?'#AA1111':'#CC2200';
   document.getElementById('e-hp-txt').textContent=G.eHp+' hp';
+  // sync mini bars
+  const pm=document.getElementById('p-hp-mini');
+  const em=document.getElementById('e-hp-mini');
+  if(pm){ pm.style.width=pp+'%'; pm.style.background=pp<20?'#AA1111':pp<50?'#997722':'#2A7A3A'; }
+  if(em){ em.style.width=ep+'%'; em.style.background=ep<20?'#440000':ep<50?'#AA1111':'#CC2200'; }
+  const pmt=document.getElementById('p-hp-mini-txt');
+  const emt=document.getElementById('e-hp-mini-txt');
+  if(pmt) pmt.textContent=pp;
+  if(emt) emt.textContent=ep;
   document.getElementById('p-deck-cnt').textContent='🃏 '+G.pDeck.length;
   document.getElementById('e-deck-cnt').textContent='🃏 '+G.eDeck.length;
 }
@@ -3655,9 +3708,14 @@ function sfxAbility(effect){
       [0,0.18].forEach(d=>{ playNoise(0.04,0.4,3000,d); playTone(200,'sawtooth',0.06,0.3,d+0.01); });
       break;
 
-    case 'precise': // 🎯 DART — light single ping
-      playTone(1047,'sine',0.12,0.2);
-      playNoise(0.05,0.15,2000,0.05);
+    case 'revenge': // 🗡️ REVENGE — dark rising tone, building tension
+      playMelody([
+        {f:220,d:0.12,type:'sawtooth',delay:0,v:0.15},
+        {f:277,d:0.12,type:'sawtooth',delay:0.12,v:0.18},
+        {f:330,d:0.18,type:'sawtooth',delay:0.24,v:0.22},
+        {f:440,d:0.25,type:'sawtooth',delay:0.4,v:0.28},
+      ]);
+      playNoise(0.06,0.3,400,0.4);
       break;
 
     case 'armor': // 🪖 HELMET — heavy metallic sound
